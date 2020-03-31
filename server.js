@@ -111,6 +111,14 @@ io.on('connection', (socket) => {
                         })
                         actionInAwait = inAwait
                     }
+                    if(data.acao == 'assassinar'){
+                        io.sockets.to(room).emit('declaracaoInfluencia', {
+                            user: inAwait.user,
+                            id: inAwait.id,
+                            tipo: ['Assassino']
+                        })
+                        actionInAwait = inAwait
+                    }
                     blockResponses = []
                     io.sockets.to(room).emit('joined', players);            
                 }else {
@@ -145,6 +153,23 @@ io.on('connection', (socket) => {
                         inAwait = control
                         blockResponses = []
                     }
+                    else if(data.acao == 'assassinar'){
+                        io.sockets.to(room).emit('chat-message', {
+                            message: 'O jogador declara ser a Condessa e quer bloquear seu movimento.',
+                            user: control.user
+                        })
+
+                        io.sockets.to(room).emit('declaracaoInfluencia', {
+                            user: control.user,
+                            id: control.id,
+                            tipo: ["Condessa"]
+                        })
+                        control.acao = "blockAssassinato"
+                        actionInAwait = inAwait
+                        actionInAwait.acao = "blockAssassinato"
+                        inAwait = control
+                        blockResponses = []
+                    }
                 }
             }
     })
@@ -173,6 +198,16 @@ io.on('connection', (socket) => {
                         }
                         if(player.id == actionInAwait.idPlayer){
                             player.coins -= 2;
+                        }
+                    }
+                }
+
+                if(actionInAwait.acao == 'assassinar'){
+                    for(player of players){
+                        if(player.id == actionInAwait.idPlayer){
+                            io.sockets.to(room).emit('descartarCard', {
+                                id: player.id
+                            })
                         }
                     }
                 }
@@ -238,6 +273,18 @@ io.on('connection', (socket) => {
             }
         }
 
+        if(actionInAwait.acao == 'assassinar'){
+            for(player of players){
+                if(player.id == actionInAwait.idPlayer){
+                    io.sockets.to(room).emit('perdeuOJogo', {
+                        id: player.id,
+                        user: player.user
+                    })
+                    players.splice(players.indexOf(player), 1);
+                }
+            }
+        }
+
         io.sockets.to(room).emit('joined', players)
 
         io.sockets.to(room).emit('descartarCard', {
@@ -254,6 +301,14 @@ io.on('connection', (socket) => {
             if(player.id == data.id){
                 oldCard = player.cards.splice(data.cardIndex, 1)
                 newCards = player.cards
+                if(newCards.length == 0){
+                    io.sockets.emit('perdeuOJogo', {
+                        user: player.user,
+                        id: player.id
+                    })
+                    players.splice(players.indexOf(player), 0)
+                    io.sockets.emit('joined', players)
+                }
             }
         }
 
@@ -287,6 +342,22 @@ io.on('connection', (socket) => {
 
         socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Capitão/Embaixador", acao: 'roubar2'})
         inAwait = {id: data.id, user: data.user, acao: 'roubar2', idPlayer: data.player.id};
+    })
+    socket.on('assassinar', (data) => {
+        io.sockets.emit('chat-message', {
+            message: 'O jogador declara ser Assassino e quer matar ' + data.player.username,
+            user: data.user
+        })
+
+        for(player of players){
+            if(player.id == data.id){
+                player.coins -= 3;
+            }
+        }
+
+        io.sockets.emit('joined', players);
+        socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Condessa", acao: 'assassinar'})
+        inAwait = {id: data.id, user: data.user, acao: 'assassinar', idPlayer: data.player.id};
     })
 });
 
