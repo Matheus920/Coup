@@ -182,7 +182,7 @@ io.on('connection', (socket) => {
                     user: actionInAwait.user
                 });
 
-                io.sockets.to(room).emit('updateInfo', players);
+                io.sockets.to(room).emit('joined', players);
                 inAwait = {}
                 actionInAwait = {}
 
@@ -238,7 +238,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        io.sockets.to(room).emit('updateInfo', players)
+        io.sockets.to(room).emit('joined', players)
 
         io.sockets.to(room).emit('descartarCard', {
             id: inAwait.id

@@ -19,8 +19,7 @@
                         <p v-for="user in info">
                             Jogador: {{user.username}} | Moedas: {{user.coins}}
                         </p>
-                    </div>
-    
+                    </div>    
                     <div v-if="!ready">
                         <h4>Entre com o Usuário</h4>
                         <form @submit.prevent="addUser">
@@ -42,13 +41,13 @@
                         <div class="card-header text-white">
                             <h4>Ações</h4>
                         </div>
-                        <button type="button" class="btn btn-primary" @click.prevent="ajudaExterna">Ajuda externa</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="pegar2">Pegar 2</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="duque3">DUQUE - 3</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo">CAPITAO - Roubar 2</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="send">ASSASSINO - Matar</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="send">EMBAIXADOR - Olhar topo</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="send">Golpe de Estado</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="ajudaExterna" :disabled="coins>=10">Ajuda externa</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="pegar2" :disabled="coins>=10">Pegar 2</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10">DUQUE - 3</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10">CAPITAO - Roubar 2</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins<3 || coins>=10">ASSASSINO - Matar</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins<7">Golpe de Estado</button>
 
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item" v-for="message in messages">
@@ -143,15 +142,15 @@
                 })
 
                 socket.on('joined', (data) => {
+                    for(player of data){
+                        if(player.id == this.id)
+                            this.coins = player.coins
+                    }
                     this.info = data;
                 });
 
                 socket.on('deckChanges', (data) => {
                     this.cards = data;
-                });
-
-                socket.on('updateInfo', (data) => {
-                    this.info = data;
                 });
 
                 socket.on('provar', (data) => {
