@@ -6,6 +6,7 @@ let deck = [];
 let blockResponses = [];
 let doubtResponses = [];
 let inAwait = null;
+let actionInAwait = null;
 let room = "";
 
 for(let i =0; i<20; i+=5){
@@ -74,7 +75,7 @@ io.on('connection', (socket) => {
     });
     socket.on('pegar2', (data) => {
         io.sockets.emit('chat-message', {
-            message: 'Gostaria de pegar 2. O Duque pode efetuar o bloqueio.',
+            message: 'Gostaria de pegar 2.',
             user: data.user
         });
 
@@ -130,11 +131,22 @@ io.on('connection', (socket) => {
                 if(control.status) break;
             }
             if(!control.status){
+                if(actionInAwait.acao == 'duque3'){
+                    for(player of players){
+                        if(player.id == actionInAwait.id){
+                            player.coins += 3;
+                        }
+                    }
+                }
+
                 io.sockets.to(room).emit('chat-message', {
                     message: 'Não foi contestado.',
-                    user: inAwait.user
+                    user: actionInAwait.user
                 });
+
+                io.sockets.to(room).emit('updateInfo', players);
                 inAwait = {}
+                actionInAwait = {}
 
             } else {
                 io.sockets.to(room).emit('chat-message', {
@@ -169,13 +181,23 @@ io.on('connection', (socket) => {
             user: data.user
         });
 
-        console.log(inAwait)
+        if(actionInAwait.acao == 'duque3'){
+            for(player of players){
+                console.log(player)
+                if(player.id == actionInAwait.id){
+                    player.coins += 3;
+                }
+            }
+        }
+
+        io.sockets.to(room).emit('updateInfo', players)
 
         io.sockets.to(room).emit('descartarCard', {
             id: inAwait.id
         })
         
         inAwait = {}
+        actionInAwait = {}
     })
     socket.on('realizarDescarte', (data) => {
         let newCards = []
@@ -192,6 +214,22 @@ io.on('connection', (socket) => {
             message: 'Realizou o descarte de ' + oldCard[0],
             user: data.user
         });
+    })
+    socket.on('duque3', (data) => {
+        io.sockets.emit('chat-message', {
+            message: 'O jogador declara ser Duque e quer pegar 3.',
+            user: data.user
+        });
+
+        socket.broadcast.to(room).emit('declaracaoInfluencia',
+         {
+            tipo: "Duque", 
+            user: data.user,
+            id: data.id,
+        });
+
+        actionInAwait = {id: data.id, user: data.user, acao: 'duque3'};
+        inAwait = {id: data.id, user: data.user, acao: 'duque3'};
     })
 });
 

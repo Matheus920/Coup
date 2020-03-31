@@ -44,7 +44,7 @@
                         </div>
                         <button type="button" class="btn btn-primary" @click.prevent="ajudaExterna">Ajuda externa</button>
                         <button type="button" class="btn btn-primary" @click.prevent="pegar2">Pegar 2</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="send">DUQUE - 3</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="duque3">DUQUE - 3</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">CAPITAO - Roubar 2</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">ASSASSINO - Matar</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">Golpe de Estado</button>
@@ -169,6 +169,14 @@
                         coins: this.coins,
                         id: this.id
                     });
+                },
+
+                duque3(){
+                    socket.emit('duque3', {
+                        user: this.username,
+                        coins: this.coins,
+                        id: this.id
+                    })
                 },
 
                 pegar2(){
