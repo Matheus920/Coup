@@ -89,10 +89,7 @@
                     </div>
                     <div v-if="ativarRoubo">
                         <p>Selecione o jogador que você deseja roubar 2 moedas</p>
-                        <ul>
-                            <li v-for="player in info"><button v-if="player.coins>=2 && player.id != id" type="button" class="btn btn-primary" @click.prevent="roubar2(player)">{{player.username}}</button></li>
-                        </ul>
-                        
+                        <button v-for="player of info" v-if="player.coins>=2 && player.id != id" type="button" class="btn btn-primary" @click.prevent="roubar2(player)">{{player.username}}</button>                        
                     </div>
                 </div>
             </div>
