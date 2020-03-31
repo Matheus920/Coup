@@ -47,13 +47,13 @@
                         <button type="button" class="btn btn-primary" @click.prevent="duque3">DUQUE - 3</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">CAPITAO - Roubar 2</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">ASSASSINO - Matar</button>
-                        <button type="button" class="btn btn-primary" @click.prevent="send">Golpe de Estado</button>
                         <button type="button" class="btn btn-primary" @click.prevent="send">EMBAIXADOR - Olhar topo</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="send">Golpe de Estado</button>
 
-                        <ul class="list-group list-group-flush text-right">
+                        <ul class="list-group list-group-flush">
                             <li class="list-group-item" v-for="message in messages">
+                                <small>{{message.user}}:</small>
                                     {{message.message}}
-                                    <small>:{{message.user}}</small>
                                 </span>
                             </li>
                         </ul>    
