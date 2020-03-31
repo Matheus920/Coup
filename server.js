@@ -4,6 +4,7 @@ let io = require('socket.io')(http);
 let players = [];
 let deck = [];
 let blockResponses = [];
+let doubtResponses = [];
 let inAwait = null;
 let room = "";
 
@@ -79,19 +80,16 @@ io.on('connection', (socket) => {
 
         socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Duque"})
         inAwait = {id: data.id, user: data.user, acao: 'pegar2'};
-
-        //io.sockets.emit('joined', players);
     })
     socket.on('bloquear', (data) => {
         blockResponses.push(data)
-            if(blockResponses.length-1 == io.sockets.adapter.rooms[room].length){
-                let control = false;
+            if(blockResponses.length == players.length-1){
+                let control;
                 for(response of blockResponses){
-                    console.log(response)
-                    control = response.status;
-                    if(control) break;
+                    control = response
+                    if(control.status) break;
                 }
-                if(!control){
+                if(!control.status){
                     io.sockets.to(room).emit('chat-message', {
                         message: 'Não foi contestado.',
                         user: inAwait.user
@@ -106,8 +104,94 @@ io.on('connection', (socket) => {
                     inAwait = {}
                     blockResponses = []
                     io.sockets.to(room).emit('joined', players);            
+                }else {
+                    io.sockets.to(room).emit('chat-message', {
+                        message: 'O jogador declara ser o Duque e quer bloquear seu movimento.',
+                        user: control.user
+                    })
+
+                    io.sockets.to(room).emit('declaracaoInfluencia', {
+                        user: control.user,
+                        id: control.id,
+                        tipo: 'Duque'
+                    })
+                    inAwait = control
+                    blockResponses = []
                 }
             }
+    })
+
+    socket.on('duvidar', (data) => {
+        doubtResponses.push(data);
+        if(doubtResponses.length == players.length-1){
+            let control;
+            for(doubt of doubtResponses){
+                control = doubt;
+                if(control.status) break;
+            }
+            if(!control.status){
+                io.sockets.to(room).emit('chat-message', {
+                    message: 'Não foi contestado.',
+                    user: inAwait.user
+                });
+                inAwait = {}
+
+            } else {
+                io.sockets.to(room).emit('chat-message', {
+                    message: 'O jogador duvida da sua informação.',
+                    user: control.user
+                });
+
+                io.sockets.to(room).emit('provar', {
+                    user: inAwait.user,
+                    id: inAwait.id,
+                    tipo: control.tipo
+                })
+
+                inAwait = control
+
+            }
+            doubtResponses = []
+        }
+    })
+    socket.on('provaCorreta', (data) => {
+        let newCards = []
+        for(player of players){
+            if(player.id == data.id){
+                player.cards[data.cardIndex] = deck.pop()
+                newCards = player.cards
+            }
+        }
+        socket.emit('deckChanges', newCards);
+
+        io.sockets.to(room).emit('chat-message', {
+            message: 'Não estava mentindo.',
+            user: data.user
+        });
+
+        console.log(inAwait)
+
+        io.sockets.to(room).emit('descartarCard', {
+            id: inAwait.id
+        })
+        
+        inAwait = {}
+    })
+    socket.on('realizarDescarte', (data) => {
+        let newCards = []
+        let oldCard = []
+        for(player of players){
+            if(player.id == data.id){
+                oldCard = player.cards.splice(data.cardIndex, 1)
+                newCards = player.cards
+            }
+        }
+
+        socket.emit('deckChanges', newCards);
+        io.sockets.to(room).emit('chat-message', {
+            message: 'Realizou o descarte de ' + oldCard[0],
+            user: data.user
+        });
     })
 });
 

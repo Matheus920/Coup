@@ -63,11 +63,28 @@
                         <button type="button" class="btn btn-primary" @click.prevent="bloquear(true, 'pegar2')">Sim</button>
                         <button type="button" class="btn btn-primary" @click.prevent="bloquear(false, 'pegar2')">Não</button>
                     </div>
+                    <div v-if="influenciaText">
+                        {{influenciaText}}
+                        <button type="button" class="btn btn-primary" @click.prevent="duvidar(true)">Sim</button>
+                        <button type="button" class="btn btn-primary" @click.prevent="duvidar(false)">Não</button>
+                    </div>
                     <div v-if="ready">
+                        <span v-if="provarText">{{provarText}}</span>
+                        <span v-else-if="descartarText">{{descartarText}}</span>
                         Suas cartas são:
                         <ul>
-                            <li>{{cards[0]}}</li>
-                            <li>{{cards[1]}}</li>
+                            <div v-if="provarText">
+                                <li @click.prevent="provar(cards[0])">{{cards[0]}}</li>
+                                <li @click.prevent="provar(cards[1])">{{cards[1]}}</li>
+                            </div>
+                            <div v-else-if="descartarText">
+                                <li @click.prevent="descartar(cards[0])">{{cards[0]}}</li>
+                                <li @click.prevent="descartar(cards[1])">{{cards[1]}}</li>
+                            </div>
+                            <div v-else>
+                                <li>{{cards[0]}}</li>
+                                <li>{{cards[1]}}</li>
+                            </div>
                         </ul>
                     </div>
                 </div>
@@ -91,8 +108,12 @@
                 info: [],
                 cards: [],
                 coins: 0,
+                tipo: "",
                 isUnblockable: true,
-                blockText: ''
+                influenciaText: "",
+                descartarText: "",
+                blockText: '',
+                provarText: ''
             },
 
             created(){
@@ -107,6 +128,13 @@
                     this.blockText = "A influência do tipo " + data.tipo + " pode efetuar o bloqueio. Gostaria de bloquear?";
                 });
 
+                socket.on('declaracaoInfluencia', (data) => {
+                    if(data.id != this.id){
+                        this.influenciaText = "O jogador " + data.user + " declarou ser " + data.tipo + ". Deseja duvidar?";
+                        this.tipo = data.tipo
+                    }
+                })
+
                 socket.on('joined', (data) => {
                     this.info = data;
                 });
@@ -118,6 +146,19 @@
                 socket.on('updateInfo', (data) => {
                     this.info = data;
                 });
+
+                socket.on('provar', (data) => {
+                    this.tipo = data.tipo;
+                    if(data.id == this.id){
+                        this.provarText = "Prove que é a influência declarada clicando na carta correspondente a ela."
+                    }
+                })
+
+                socket.on('descartarCard', (data) => {
+                    if(data.id == this.id){
+                        this.descartarText = "Descarte uma das suas influências clicando na carta desejada."
+                    }
+                })
 
             },
 
@@ -142,9 +183,48 @@
                     socket.emit('bloquear', {
                         user: this.username,
                         id: this.id,
-                        satus: status,
+                        status: status,
                         acao: acao
                     })
+                    this.blockText = ""
+                },
+
+                duvidar(status){
+                    socket.emit('duvidar', {
+                        user: this.username,
+                        id: this.id,
+                        status: status,
+                        tipo: this.tipo
+                    })
+                    this.influenciaText = ""
+                },
+
+                provar(carta){
+                    if(carta == this.tipo){
+                        socket.emit('provaCorreta', {
+                            id: this.id,
+                            tipo: this.tipo,
+                            user: this.username,
+                            cardIndex: this.cards.indexOf(carta)
+                        })
+                    }else {                        
+                        socket.emit('realizarDescarte', {
+                            id: this.id,
+                            cardIndex: this.cards.indexOf(carta),
+                            user: this.username
+                        })
+                    }
+                    this.provarText = ""
+                },
+
+                descartar(carta){
+                    socket.emit('realizarDescarte', {
+                        id: this.id,
+                        cardIndex: this.cards.indexOf(carta),
+                        user: this.username
+                    })
+                    this.tipo = ""
+                    this.descartarText = ""
                 },
 
                 addUser() {
