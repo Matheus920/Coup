@@ -1,0 +1,24 @@
+{
+  "name": "coup",
+  "version": "1.0.0",
+  "description": "A Coup Game using Socket.io and Vue.js",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Matheus920/Coup.git"
+  },
+  "author": "Matheus Moreira",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Matheus920/Coup/issues"
+  },
+  "homepage": "https://github.com/Matheus920/Coup#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^2.3.0",
+    "uuid": "^7.0.2"
+  }
+}
