@@ -79,7 +79,7 @@ io.on('connection', (socket) => {
             user: data.user
         });
 
-        socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Duque"})
+        socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Duque", acao: 'pegar2'})
         inAwait = {id: data.id, user: data.user, acao: 'pegar2'};
     })
     socket.on('bloquear', (data) => {
@@ -101,23 +101,50 @@ io.on('connection', (socket) => {
                             if(player.id == inAwait.id)
                                 player.coins += 2
                         }
+                        inAwait = {}
                     }
-                    inAwait = {}
+                    if(data.acao == 'roubar2'){
+                        io.sockets.to(room).emit('declaracaoInfluencia', {
+                            user: inAwait.user,
+                            id: inAwait.id,
+                            tipo: ['Capitão']
+                        })
+                        actionInAwait = inAwait
+                    }
                     blockResponses = []
                     io.sockets.to(room).emit('joined', players);            
                 }else {
-                    io.sockets.to(room).emit('chat-message', {
-                        message: 'O jogador declara ser o Duque e quer bloquear seu movimento.',
-                        user: control.user
-                    })
+                    if(data.acao == 'pegar2'){
+                        io.sockets.to(room).emit('chat-message', {
+                            message: 'O jogador declara ser o Duque e quer bloquear seu movimento.',
+                            user: control.user
+                        })
 
-                    io.sockets.to(room).emit('declaracaoInfluencia', {
-                        user: control.user,
-                        id: control.id,
-                        tipo: 'Duque'
-                    })
-                    inAwait = control
-                    blockResponses = []
+                        io.sockets.to(room).emit('declaracaoInfluencia', {
+                            user: control.user,
+                            id: control.id,
+                            tipo: ['Duque']
+                        })
+                        inAwait = control
+                        blockResponses = []
+                    }
+                    else if(data.acao == 'roubar2'){
+                        io.sockets.to(room).emit('chat-message', {
+                            message: 'O jogador declara ser o Capitão/Embaixador e quer bloquear seu movimento.',
+                            user: control.user
+                        })
+
+                        io.sockets.to(room).emit('declaracaoInfluencia', {
+                            user: control.user,
+                            id: control.id,
+                            tipo: ["Capitão", "Embaixador"]
+                        })
+                        control.acao = "blockRoubo"
+                        actionInAwait = inAwait
+                        actionInAwait.acao = "blockRoubo"
+                        inAwait = control
+                        blockResponses = []
+                    }
                 }
             }
     })
@@ -135,6 +162,17 @@ io.on('connection', (socket) => {
                     for(player of players){
                         if(player.id == actionInAwait.id){
                             player.coins += 3;
+                        }
+                    }
+                }
+
+                if(actionInAwait.acao == 'roubar2'){
+                    for(player of players){
+                        if(player.id == actionInAwait.id){
+                            player.coins += 2;
+                        }
+                        if(player.id == actionInAwait.idPlayer){
+                            player.coins -= 2;
                         }
                     }
                 }
@@ -183,9 +221,19 @@ io.on('connection', (socket) => {
 
         if(actionInAwait.acao == 'duque3'){
             for(player of players){
-                console.log(player)
                 if(player.id == actionInAwait.id){
                     player.coins += 3;
+                }
+            }
+        }
+
+        if(actionInAwait.acao == 'roubar2'){
+            for(player of players){
+                if(player.id == actionInAwait.id){
+                    player.coins += 2;
+                }
+                if(player.id == actionInAwait.idPlayer){
+                    player.coins -= 2;
                 }
             }
         }
@@ -230,6 +278,15 @@ io.on('connection', (socket) => {
 
         actionInAwait = {id: data.id, user: data.user, acao: 'duque3'};
         inAwait = {id: data.id, user: data.user, acao: 'duque3'};
+    })
+    socket.on('roubar2', (data) => {
+        io.sockets.emit('chat-message', {
+            message: 'O jogador declara ser Capitão e quer roubar de ' + data.player.username,
+            user: data.user
+        });
+
+        socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Capitão/Embaixador", acao: 'roubar2'})
+        inAwait = {id: data.id, user: data.user, acao: 'roubar2', idPlayer: data.player.id};
     })
 });
 
