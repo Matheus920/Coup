@@ -1,6 +1,7 @@
 let app = require('express')();
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
+let uuid = require('uuid')
 let players = [];
 let deck = [];
 let blockResponses = [];
@@ -11,11 +12,11 @@ let hasBegun = false;
 let room = "";
 
 for(let i =0; i<20; i+=5){
-    deck[i] = "Assassino"
-    deck[i+1] = "Condessa"
-    deck[i+2] = "Duque"
-    deck[i+3] = "Embaixador"
-    deck[i+4] = "Capitão"
+    deck[i] = {'name': "Assassino", 'id': uuid.v4()}
+    deck[i+1] = {'name': "Condessa", 'id': uuid.v4()}
+    deck[i+2] = {'name': "Duque", 'id': uuid.v4()}
+    deck[i+3] = {'name': "Embaixador", 'id': uuid.v4()}
+    deck[i+4] = {'name': "Capitão", 'id': uuid.v4()}
 }
 
 function shuffle(array) {
@@ -84,11 +85,11 @@ io.on('connection', (socket) => {
         data.cards = [deck.pop(), deck.pop()];
 
         players.push(data);
-        socket.emit('deckChanges', data.cards);
+        io.sockets.to(room).emit('deckChanges', {cards: data.cards, id: data.id});
         io.sockets.to(room).emit('joined', players);
     });
     socket.on('pegar2', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
             message: 'Gostaria de pegar 2.',
             user: data.user
         });
@@ -226,6 +227,24 @@ io.on('connection', (socket) => {
                     }
                 }
 
+                if(actionInAwait.acao == 'olharTopo'){
+                    let cards = []
+                    for(player of players){
+                        if(player.id == actionInAwait.id){
+                            player.cards.push(deck.pop())
+                            player.cards.push(deck.pop())
+                            cards = player.cards
+                        }
+                    }
+                    io.sockets.to(room).emit('deckChanges', {
+                        cards: cards,
+                        id: actionInAwait.id
+                    })
+                    io.sockets.to(room).emit('podeOlhar', {
+                        id: actionInAwait.id
+                    })
+                }
+
                 io.sockets.to(room).emit('chat-message', {
                     message: 'Não foi contestado.',
                     user: actionInAwait.user
@@ -261,7 +280,10 @@ io.on('connection', (socket) => {
                 newCards = player.cards
             }
         }
-        socket.emit('deckChanges', newCards);
+        io.sockets.to(room).emit('deckChanges', {
+            cards: newCards,
+            id: data.id
+        });
 
         io.sockets.to(room).emit('chat-message', {
             message: 'Não estava mentindo.',
@@ -294,7 +316,7 @@ io.on('connection', (socket) => {
                         id: player.id,
                         user: player.user
                     })
-                    players.splice(players.indexOf(player), 1);
+                    players.splice(players.findIndex(i => i.id == player.id), 1);
                 }
             }
         }
@@ -316,24 +338,24 @@ io.on('connection', (socket) => {
                 oldCard = player.cards.splice(data.cardIndex, 1)
                 newCards = player.cards
                 if(newCards.length == 0){
-                    io.sockets.emit('perdeuOJogo', {
+                    io.sockets.to(room).emit('perdeuOJogo', {
                         user: player.user,
                         id: player.id
                     })
-                    players.splice(players.indexOf(player), 0)
-                    io.sockets.emit('joined', players)
+                    players.splice(players.findIndex(i => i.id == player.id), 1)
+                    io.sockets.to(room).emit('joined', players)
                 }
             }
         }
 
-        socket.emit('deckChanges', newCards);
+        io.sockets.to(room).emit('deckChanges', {cards: newCards, id: data.id});
         io.sockets.to(room).emit('chat-message', {
-            message: 'Realizou o descarte de ' + oldCard[0],
+            message: 'Realizou o descarte de ' + oldCard[0].name,
             user: data.user
         });
     })
     socket.on('duque3', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
             message: 'O jogador declara ser Duque e quer pegar 3.',
             user: data.user
         });
@@ -349,7 +371,7 @@ io.on('connection', (socket) => {
         inAwait = {id: data.id, user: data.user, acao: 'duque3'};
     })
     socket.on('roubar2', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
             message: 'O jogador declara ser Capitão e quer roubar de ' + data.player.username,
             user: data.user
         });
@@ -358,7 +380,7 @@ io.on('connection', (socket) => {
         inAwait = {id: data.id, user: data.user, acao: 'roubar2', idPlayer: data.player.id};
     })
     socket.on('assassinar', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
             message: 'O jogador declara ser Assassino e quer matar ' + data.player.username,
             user: data.user
         })
@@ -369,23 +391,23 @@ io.on('connection', (socket) => {
             }
         }
 
-        io.sockets.emit('joined', players);
+        io.sockets.to(room).emit('joined', players);
         socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Condessa", acao: 'assassinar'})
         inAwait = {id: data.id, user: data.user, acao: 'assassinar', idPlayer: data.player.id};
     })
     socket.on('sair', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
             message: 'O jogador saiu',
             user: data.user
         })
 
         for(player of players){
             if(player.id == data.id){
-                players.splice(players.indexOf(player), 1)
+                players.splice(players.findIndex(i => i.id == player.id), 1)
             }
         }
 
-        io.sockets.emit('joined', players)
+        io.sockets.to(room).emit('joined', players)
 
         socket.emit('fimDeJogo')
     })
@@ -394,10 +416,10 @@ io.on('connection', (socket) => {
     })
     socket.on('iniciar', () =>{
         hasBegun = true
-        io.sockets.emit('jogoIniciado')
+        io.sockets.to(room).emit('jogoIniciado')
     })
     socket.on('golpeDeEstado', (data) => {
-        io.sockets.emit('chat-message', {
+        io.sockets.to(room).emit('chat-message', {
           message:  'O jogador deseja dar um golpe de estado em ' + data.player.username,
           user: data.user
         })
@@ -408,10 +430,42 @@ io.on('connection', (socket) => {
             }
         }
 
-        io.sockets.emit('joined', players)
-        io.sockets.emit('descartarCard', {
+        io.sockets.to(room).emit('joined', players)
+        io.sockets.to(room).emit('descartarCard', {
             id: data.player.id
         })
+    })
+    socket.on('embaixador', (data) => {
+        io.sockets.to(room).emit('chat-message', {
+            message:  'O jogador declara ser embaixador e gostaria de olhar as 2 do topo',
+            user: data.user
+        })
+
+        socket.broadcast.to(room).emit('declaracaoInfluencia',
+         {
+            tipo: "Embaixador", 
+            user: data.user,
+            id: data.id,
+        });
+
+        inAwait = {id: data.id, user: data.user, acao: 'olharTopo'};
+        actionInAwait = inAwait
+
+    })
+    socket.on('confirmacaoEmbaixador', (data) => {
+        deck.push(data.secondSelection)
+        deck.push(data.firstSelection)
+
+        let cards = []
+        for(player of players){
+            if(player.id == data.id){
+                player.cards.splice(player.cards.findIndex(i => i.id === data.firstSelection.id), 1)
+                player.cards.splice(player.cards.findIndex(i => i.id === data.secondSelection.id), 1)
+                cards = player.cards
+            }
+        }
+
+        io.sockets.to(room).emit('deckChanges', {cards: cards, id: data.id})
     })
 });
 

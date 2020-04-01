@@ -7,6 +7,8 @@
         <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous" />
         <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+        <script src="https://unpkg.com/vue-select@latest"></script>
+        <link rel="stylesheet" href="https://unpkg.com/vue-select@latest/dist/vue-select.css">
         <script src="/socket.io/socket.io.js"></script>
     </head>
 
@@ -23,6 +25,7 @@
                         <button class="btn btn-primary" style="float:right" @click.prevent="sair()">Sair</button>
                         <button v-if="!jogoIniciado" class="btn btn-primary" style="float:right" @click.prevent="iniciar()">Iniciar jogo</button>
                         </div>
+
                     </div>    
                     <div v-if="!ready">
                         <h4>Entre com o Usuário</h4>
@@ -51,7 +54,7 @@
                         <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10">DUQUE - 3</button>
                         <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10">CAPITAO - Roubar 2</button>
                         <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarAssassinar =!ativarAssassinar" :disabled="coins<3 || coins>=10">ASSASSINO - Matar</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="embaixador" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
                         <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarGolpe = !ativarGolpe" :disabled="coins<7">Golpe de Estado</button>
                     
 
@@ -80,16 +83,13 @@
                             Suas cartas são:
                             <ul>
                                 <div v-if="provarText">
-                                    <li @click.prevent="provar(cards[0])">{{cards[0]}}</li>
-                                    <li @click.prevent="provar(cards[1])">{{cards[1]}}</li>
+                                    <li  v-for="card of cards" @click.prevent="provar(card.name)">{{card.name}}</li>
                                 </div>
                                 <div v-else-if="descartarText">
-                                    <li @click.prevent="descartar(cards[0])">{{cards[0]}}</li>
-                                    <li @click.prevent="descartar(cards[1])">{{cards[1]}}</li>
+                                    <li v-for="card of cards" @click.prevent="descartar(card)">{{card.name}}</li>
                                 </div>
                                 <div v-else>
-                                    <li>{{cards[0]}}</li>
-                                    <li>{{cards[1]}}</li>
+                                    <li v-for="card of cards">{{card.name}}</li>
                                 </div>
                             </ul>
                         </div>
@@ -105,6 +105,12 @@
                             <p>Selecione o jogador que você deseja aplicar um golpe de estado</p>
                             <button v-for="player of info" v-if="player.id != id" type="button" class="btn btn-primary" @click.prevent="golpeDeEstado(player)">{{player.username}}</button>                        
                         </div>
+                        <div v-if="ativarEmbaixador">
+                            <p>No momento você está com duas cartas do topo na mão. Selecione abaixo quais deseja devolver para o deck:</p>
+                            Ficará no topo: <v-select :options="cards" label="name" v-model="firstSelection"></v-select>
+                            Ficará abaixo do topo: <v-select label="name" :options="cards" v-model="secondSelection"></v-select>
+                            <button class="btn btn-primary" @click.prevent="confirmarEmbaixador">Enviar</button>
+                        </div>
                     </div>
                     <div v-else>
                         <p>Você perdeu o jogo</p>
@@ -117,6 +123,7 @@
 
     <script>
         var socket = io();
+        Vue.component('v-select', VueSelect.VueSelect)
         let vue = new Vue({
             el: '#app',
 
@@ -134,11 +141,14 @@
                 tipo: [],
                 isUnblockable: true,
                 ativarAssassinar: false,
+                ativarEmbaixador: false,
                 influenciaText: "",
                 descartarText: "",
                 blockText: '',
                 ativarRoubo: false,
                 ativarGolpe: false,
+                firstSelection: {},
+                secondSelection: {},
                 isAlive: true,
                 provarText: '',
                 jogoIniciado: false
@@ -210,8 +220,11 @@
                 });
 
                 socket.on('deckChanges', (data) => {
-                    this.cards = data;
-                    localStorage.setItem('cards', JSON.stringify(data));
+                    if(data.id == this.id){
+                        console.log(data.cards)
+                        this.cards = data.cards;
+                        localStorage.setItem('cards', JSON.stringify(data.cards));
+                    }
                 });
 
                 socket.on('provar', (data) => {
@@ -230,6 +243,11 @@
                 socket.on('fimDeJogo', () => {
                     this.limparDados()
                     socket.emit('disconnect')
+                })
+
+                socket.on('podeOlhar', (data) =>{
+                    if(this.id == data.id)
+                        this.ativarEmbaixador = true;  
                 })
 
                 socket.on('salaNaoEncontrada', () => {
@@ -301,6 +319,13 @@
                     })
                 },
 
+                embaixador(){
+                    socket.emit('embaixador', {
+                        user: this.username,
+                        id: this.id
+                    })
+                },
+
                 roubar2(player){
                     socket.emit('roubar2', {
                         user: this.username,
@@ -358,6 +383,22 @@
                     })
                 },
 
+                confirmarEmbaixador(){
+                    if(this.firstSelection.id == this.secondSelection.id){
+                        alert('Por favor selecione duas cartas distintas')
+                        return
+                    }
+                    socket.emit('confirmacaoEmbaixador', {
+                        firstSelection: this.firstSelection,
+                        secondSelection: this.secondSelection,
+                        id: this.id
+                    })
+
+                    this.ativarEmbaixador = false
+                    this.firstSelection = {}
+                    this.secondSelection = {}
+                },
+
                 iniciar(){
                     socket.emit('iniciar')
                 },
@@ -368,12 +409,12 @@
                             id: this.id,
                             tipo: this.tipo,
                             user: this.username,
-                            cardIndex: this.cards.indexOf(carta)
+                            cardIndex: this.cards.findIndex(i => i.name == carta)
                         })
                     }else {                        
                         socket.emit('realizarDescarte', {
                             id: this.id,
-                            cardIndex: this.cards.indexOf(carta),
+                            cardIndex: this.cards.findIndex(i => i.name == carta),
                             user: this.username
                         })
                     }
@@ -383,7 +424,7 @@
                 descartar(carta){
                     socket.emit('realizarDescarte', {
                         id: this.id,
-                        cardIndex: this.cards.indexOf(carta),
+                        cardIndex: this.cards.findIndex(i => i.id == carta.id),
                         user: this.username
                     })
                     this.tipo = []
