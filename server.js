@@ -460,14 +460,13 @@ io.on('connection', (socket) => {
                     players = []
                     hasBegun = false
                     discardedCards = []
-                    return
                 }
             }
         }
 
+        socket.emit('fimDeJogo')
         io.sockets.to(room).emit('joined', players)
 
-        socket.emit('fimDeJogo')
     })
     socket.on('disconnect', () => {
         socket.disconnect()
