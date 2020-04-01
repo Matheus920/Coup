@@ -455,6 +455,13 @@ io.on('connection', (socket) => {
                     })
                     return
                 }
+                if(players.length == 0){
+                    room = null
+                    players = []
+                    hasBegun = false
+                    discardedCards = []
+                    return
+                }
             }
         }
 
