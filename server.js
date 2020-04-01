@@ -7,6 +7,7 @@ let blockResponses = [];
 let doubtResponses = [];
 let inAwait = null;
 let actionInAwait = null;
+let hasBegun = false;
 let room = "";
 
 for(let i =0; i<20; i+=5){
@@ -59,8 +60,21 @@ io.on('connection', (socket) => {
         io.sockets.to(room).emit('joined', players);
     });
     socket.on('room', (data) => {
+        if(room){
+            if(data.room != room){
+                socket.emit('salaNaoEncontrada')
+                return;
+            }
+
+            if(hasBegun){
+                socket.emit('jaIniciou')
+                return;
+            }
+        }
+
         room = data.room;
         socket.join(data.room);
+        socket.emit('salaEncontrada')
     })
     socket.on('joined', (data) => {
         if(players.length == 0){
@@ -358,6 +372,29 @@ io.on('connection', (socket) => {
         io.sockets.emit('joined', players);
         socket.broadcast.to(room).emit('chanceDeBloqueio', {tipo: "Condessa", acao: 'assassinar'})
         inAwait = {id: data.id, user: data.user, acao: 'assassinar', idPlayer: data.player.id};
+    })
+    socket.on('sair', (data) => {
+        io.sockets.emit('chat-message', {
+            message: 'O jogador saiu',
+            user: data.user
+        })
+
+        for(player of players){
+            if(player.id == data.id){
+                players.splice(players.indexOf(player), 1)
+            }
+        }
+
+        io.sockets.emit('joined', players)
+
+        socket.emit('fimDeJogo')
+    })
+    socket.on('disconnect', () => {
+        socket.disconnect()
+    })
+    socket.on('iniciar', () =>{
+        hasBegun = true
+        io.sockets.emit('jogoIniciado')
     })
 });
 

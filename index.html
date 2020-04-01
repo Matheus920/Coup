@@ -19,6 +19,10 @@
                         <p v-for="user in info">
                             Jogador: {{user.username}} | Moedas: {{user.coins}}
                         </p>
+                        <div class="float:right">
+                        <button class="btn btn-primary" style="float:right" @click.prevent="sair()">Sair</button>
+                        <button v-if="!jogoIniciado" class="btn btn-primary" style="float:right" @click.prevent="iniciar()">Iniciar jogo</button>
+                        </div>
                     </div>    
                     <div v-if="!ready">
                         <h4>Entre com o Usuário</h4>
@@ -131,15 +135,45 @@
                 blockText: '',
                 ativarRoubo: false,
                 isAlive: true,
-                provarText: ''
+                provarText: '',
+                jogoIniciado: false
+            },
+
+            mounted(){     
+                this.ready = localStorage.ready
+                
+                if(localStorage.info){
+                    this.info = JSON.parse(localStorage.info)
+                }
+                if(localStorage.cards){
+                    this.cards = JSON.parse(localStorage.cards)
+                }
+                if(localStorage.coins){
+                    this.coins = localStorage.coins
+                }
+                if(localStorage.username){
+                    this.username = localStorage.username
+                }
+                if(localStorage.messages){
+                    this.messages = JSON.parse(localStorage.messages)
+                }
+                if(localStorage.id){
+                    this.id = localStorage.id
+                }
+                if(localStorage.room){
+                    this.room = localStorage.room
+                }
+                this.jogoIniciado = localStorage.jogoIniciado
             },
 
             created(){
+                
                 socket.on('chat-message', (data) => {
                     this.messages.push({
                         message: data.message,
                         user: data.user
                     });
+                    localStorage.messages = JSON.stringify(this.messages)
                 });
 
                 socket.on('chanceDeBloqueio', (data) => {
@@ -161,14 +195,18 @@
 
                 socket.on('joined', (data) => {
                     for(player of data){
-                        if(player.id == this.id)
+                        if(player.id == this.id){
                             this.coins = player.coins
+                            localStorage.coins = this.coins
+                        }
                     }
                     this.info = data;
+                    localStorage.setItem('info', JSON.stringify(data));
                 });
 
                 socket.on('deckChanges', (data) => {
                     this.cards = data;
+                    localStorage.setItem('cards', JSON.stringify(data));
                 });
 
                 socket.on('provar', (data) => {
@@ -184,9 +222,56 @@
                     }
                 })
 
+                socket.on('fimDeJogo', () => {
+                    this.limparDados()
+                    socket.emit('disconnect')
+                })
+
+                socket.on('salaNaoEncontrada', () => {
+                    alert('Sala não encontrada para jogo')
+                    this.limparDados()
+                })
+
+                socket.on('jaIniciou', () => {
+                    alert('O jogo já iniciou, espere acabar')
+                    this.limparDados()
+                })
+
+                socket.on('jogoIniciado', () => {
+                    this.jogoIniciado = true
+                    localStorage.jogoIniciado = true
+                })
+
+                socket.on('salaEncontrada', () => {
+                    localStorage.room = this.room
+                    this.id = this.uuidv4();
+                    localStorage.id = this.id
+                    localStorage.username = this.username
+                    socket.emit('joined', {
+                        username: this.username,
+                        coins: this.coins,
+                        room: this.room,
+                        id: this.id
+                    });
+                    localStorage.ready = true;
+                    this.ready = true;
+                })
+
             },
 
             methods: {
+                limparDados(){
+                    this.id = "",
+                    this.username = "",
+                    this.info = [],
+                    this.cards = [],
+                    this.room = "",
+                    this.coins = 0,
+                    this.messages = [],
+                    this.ready = false
+                    localStorage.clear()
+                },
+
                 ajudaExterna() {
                     socket.emit('ajuda-externa', {
                         user: this.username,
@@ -250,6 +335,17 @@
                     this.influenciaText = ""
                 },
 
+                sair(){
+                    socket.emit('sair', {
+                        id: this.id,
+                        user: this.username
+                    })
+                },
+
+                iniciar(){
+                    socket.emit('iniciar')
+                },
+
                 provar(carta){
                     if(this.tipo.indexOf(carta) >= 0){
                         socket.emit('provaCorreta', {
@@ -280,14 +376,6 @@
 
                 addUser() {
                     socket.emit('room', {room: this.room})
-                    this.id = this.uuidv4();
-                    socket.emit('joined', {
-                        username: this.username,
-                        coins: this.coins,
-                        room: this.room,
-                        id: this.id
-                    });
-                    this.ready = true;
                 },
 
                 uuidv4() {
