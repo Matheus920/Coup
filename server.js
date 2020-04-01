@@ -11,6 +11,7 @@ let inAwait = null;
 let actionInAwait = null;
 let hasBegun = false;
 let room = "";
+let porta = process.env.PORT
 
 function montaDeck(){
     for(let i =0; i<20; i+=5){
@@ -53,8 +54,8 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html')
 });
 
-http.listen(3000, () => {
-    console.log('Listening on port *: 3000');
+http.listen(porta, () => {
+    console.log('Listening on port *: ' + porta);
 });
 
 io.on('connection', (socket) => {
