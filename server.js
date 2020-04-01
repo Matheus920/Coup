@@ -252,6 +252,9 @@ io.on('connection', (socket) => {
                             cards = player.cards
                         }
                     }
+
+                    io.sockets.to(room).emit('discardedCards', discardedCards)
+                    io.sockets.to(room).emit('deckLength', {length: deck.length})
                     io.sockets.to(room).emit('deckChanges', {
                         cards: cards,
                         id: actionInAwait.id
