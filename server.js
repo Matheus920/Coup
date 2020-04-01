@@ -460,6 +460,8 @@ io.on('connection', (socket) => {
                     players = []
                     hasBegun = false
                     discardedCards = []
+                    socket.emit('fimDeJogo')
+                    return
                 }
             }
         }
