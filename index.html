@@ -92,6 +92,11 @@
                                     <li v-for="card of cards">{{card.name}}</li>
                                 </div>
                             </ul>
+                            Cartas Descartadas:
+                            <ul>
+                                <li v-for="card of discarded">{{card.name}}</li>
+                            </ul>
+                            Cartas Restantes no Monte: {{leftCards}}
                         </div>
                         <div v-if="ativarRoubo">
                             <p>Selecione o jogador que você deseja roubar 2 moedas</p>
@@ -151,7 +156,9 @@
                 secondSelection: {},
                 isAlive: true,
                 provarText: '',
-                jogoIniciado: false
+                jogoIniciado: false,
+                leftCards: 0,
+                discarded: []
             },
 
             mounted(){     
@@ -177,6 +184,12 @@
                 }
                 if(localStorage.room){
                     this.room = localStorage.room
+                }
+                if(localStorage.leftCards){
+                    this.leftCards = localStorage.leftCards
+                }
+                if(localStorage.discarded){
+                    this.discarded = localStorage.discarded
                 }
                 this.jogoIniciado = localStorage.jogoIniciado
             },
@@ -265,6 +278,16 @@
                     localStorage.jogoIniciado = true
                 })
 
+                socket.on('deckLength', (data) => {
+                    this.leftCards = data.length
+                    localStorage.leftCards = data.length
+                })
+
+                socket.on('discardedCards', (data) => {
+                    this.discarded = data
+                    localStorage.discarded = JSON.stringify(data)
+                })
+
                 socket.on('salaEncontrada', () => {
                     localStorage.room = this.room
                     this.id = this.uuidv4();
@@ -280,18 +303,29 @@
                     this.ready = true;
                 })
 
+                socket.on('winner', (data) => {
+                    if(data.id == this.id){
+                        alert('Parabéns! Você foi o vencedor.')
+                    }
+                    this.limparDados();
+                    socket.emit('disconnect')
+                    socket.emit('reiniciarJogo')
+                })
+
             },
 
             methods: {
                 limparDados(){
-                    this.id = "",
-                    this.username = "",
-                    this.info = [],
-                    this.cards = [],
-                    this.room = "",
-                    this.coins = 0,
-                    this.messages = [],
+                    this.id = ""
+                    this.username = ""
+                    this.info = []
+                    this.cards = []
+                    this.room = ""
+                    this.coins = 0
+                    this.messages = []
+                    this.discarded = []
                     this.ready = false
+                    this.jogoIniciado = false
                     localStorage.clear()
                 },
 

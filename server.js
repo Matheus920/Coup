@@ -5,18 +5,29 @@ let uuid = require('uuid')
 let players = [];
 let deck = [];
 let blockResponses = [];
+let discardedCards = [];
 let doubtResponses = [];
 let inAwait = null;
 let actionInAwait = null;
 let hasBegun = false;
 let room = "";
 
-for(let i =0; i<20; i+=5){
-    deck[i] = {'name': "Assassino", 'id': uuid.v4()}
-    deck[i+1] = {'name': "Condessa", 'id': uuid.v4()}
-    deck[i+2] = {'name': "Duque", 'id': uuid.v4()}
-    deck[i+3] = {'name': "Embaixador", 'id': uuid.v4()}
-    deck[i+4] = {'name': "Capitão", 'id': uuid.v4()}
+function montaDeck(){
+    for(let i =0; i<20; i+=5){
+        deck[i] = {'name': "Assassino", 'id': uuid.v4()}
+        deck[i+1] = {'name': "Condessa", 'id': uuid.v4()}
+        deck[i+2] = {'name': "Duque", 'id': uuid.v4()}
+        deck[i+3] = {'name': "Embaixador", 'id': uuid.v4()}
+        deck[i+4] = {'name': "Capitão", 'id': uuid.v4()}
+    }
+}
+
+function recallAndShuffle(){
+    for(card of discardedCards){
+        deck.push(card)
+    }
+    discardedCards = []
+    deck = shuffle(deck)
 }
 
 function shuffle(array) {
@@ -79,6 +90,7 @@ io.on('connection', (socket) => {
     })
     socket.on('joined', (data) => {
         if(players.length == 0){
+            montaDeck();
             deck = shuffle(deck);
         }
 
@@ -87,6 +99,7 @@ io.on('connection', (socket) => {
         players.push(data);
         io.sockets.to(room).emit('deckChanges', {cards: data.cards, id: data.id});
         io.sockets.to(room).emit('joined', players);
+        io.sockets.to(room).emit('deckLength', {length: deck.length})
     });
     socket.on('pegar2', (data) => {
         io.sockets.to(room).emit('chat-message', {
@@ -231,6 +244,9 @@ io.on('connection', (socket) => {
                     let cards = []
                     for(player of players){
                         if(player.id == actionInAwait.id){
+                            if(deck.length < 2){
+                                recallAndShuffle()
+                            }
                             player.cards.push(deck.pop())
                             player.cards.push(deck.pop())
                             cards = player.cards
@@ -276,6 +292,10 @@ io.on('connection', (socket) => {
         let newCards = []
         for(player of players){
             if(player.id == data.id){
+                discardedCards.push(player.cards[data.cardIndex])
+                if(deck.length < 1){
+                    recallAndShuffle()
+                }
                 player.cards[data.cardIndex] = deck.pop()
                 newCards = player.cards
             }
@@ -284,6 +304,12 @@ io.on('connection', (socket) => {
             cards: newCards,
             id: data.id
         });
+
+        io.sockets.to(room).emit('deckLength', {
+            length: deck.length
+        })
+
+        io.sockets.to(room).emit('discardedCards', discardedCards)
 
         io.sockets.to(room).emit('chat-message', {
             message: 'Não estava mentindo.',
@@ -317,6 +343,13 @@ io.on('connection', (socket) => {
                         user: player.user
                     })
                     players.splice(players.findIndex(i => i.id == player.id), 1);
+                    if(players.length == 1){
+                        io.sockets.to(room).emit('winner', {
+                            id: players[0].id
+                        })
+                        return
+                    }
+                    
                 }
             }
         }
@@ -336,6 +369,7 @@ io.on('connection', (socket) => {
         for(player of players){
             if(player.id == data.id){
                 oldCard = player.cards.splice(data.cardIndex, 1)
+                discardedCards.push(oldCard[0])
                 newCards = player.cards
                 if(newCards.length == 0){
                     io.sockets.to(room).emit('perdeuOJogo', {
@@ -343,11 +377,18 @@ io.on('connection', (socket) => {
                         id: player.id
                     })
                     players.splice(players.findIndex(i => i.id == player.id), 1)
+                    if(players.length == 1){
+                        io.sockets.to(room).emit('winner', {
+                            id: players[0].id
+                        })
+                        return
+                    }
                     io.sockets.to(room).emit('joined', players)
                 }
             }
         }
 
+        io.sockets.to(room).emit('discardedCards', discardedCards)
         io.sockets.to(room).emit('deckChanges', {cards: newCards, id: data.id});
         io.sockets.to(room).emit('chat-message', {
             message: 'Realizou o descarte de ' + oldCard[0].name,
@@ -404,6 +445,12 @@ io.on('connection', (socket) => {
         for(player of players){
             if(player.id == data.id){
                 players.splice(players.findIndex(i => i.id == player.id), 1)
+                if(players.length == 1 && hasBegun){
+                    io.sockets.to(room).emit('winner', {
+                        id: players[0].id
+                    })
+                    return
+                }
             }
         }
 
@@ -466,6 +513,12 @@ io.on('connection', (socket) => {
         }
 
         io.sockets.to(room).emit('deckChanges', {cards: cards, id: data.id})
+    })
+    socket.on('reiniciarJogo', () => {
+        room = null
+        players = []
+        hasBegun = false
+        discardedCards = []
     })
 });
 
