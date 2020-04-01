@@ -396,5 +396,22 @@ io.on('connection', (socket) => {
         hasBegun = true
         io.sockets.emit('jogoIniciado')
     })
+    socket.on('golpeDeEstado', (data) => {
+        io.sockets.emit('chat-message', {
+          message:  'O jogador deseja dar um golpe de estado em ' + data.player.username,
+          user: data.user
+        })
+
+        for(player of players){
+            if(player.id == data.id){
+                player.coins -= 7;
+            }
+        }
+
+        io.sockets.emit('joined', players)
+        io.sockets.emit('descartarCard', {
+            id: data.player.id
+        })
+    })
 });
 

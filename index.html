@@ -46,13 +46,13 @@
                             <h4>Ações</h4>
                         </div>
 
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="ajudaExterna" :disabled="coins>=10">Ajuda externa</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="pegar2" :disabled="coins>=10">Pegar 2</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10">DUQUE - 3</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10">CAPITAO - Roubar 2</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="ativarAssassinar =!ativarAssassinar" :disabled="coins<3 || coins>=10">ASSASSINO - Matar</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
-                        <button v-if="isAlive" type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins<7">Golpe de Estado</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ajudaExterna" :disabled="coins>=10">Ajuda externa</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="pegar2" :disabled="coins>=10">Pegar 2</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10">DUQUE - 3</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10">CAPITAO - Roubar 2</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarAssassinar =!ativarAssassinar" :disabled="coins<3 || coins>=10">ASSASSINO - Matar</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="send" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarGolpe = !ativarGolpe" :disabled="coins<7">Golpe de Estado</button>
                     
 
                         <ul class="list-group list-group-flush" style="max-height: 300px; overflow-y: scroll;">
@@ -101,6 +101,10 @@
                             <p>Selecione o jogador que você deseja assassinar</p>
                             <button v-for="player of info" v-if="player.id != id" type="button" class="btn btn-primary" @click.prevent="assassinar(player)">{{player.username}}</button>                        
                         </div>
+                        <div v-if="ativarGolpe">
+                            <p>Selecione o jogador que você deseja aplicar um golpe de estado</p>
+                            <button v-for="player of info" v-if="player.id != id" type="button" class="btn btn-primary" @click.prevent="golpeDeEstado(player)">{{player.username}}</button>                        
+                        </div>
                     </div>
                     <div v-else>
                         <p>Você perdeu o jogo</p>
@@ -134,6 +138,7 @@
                 descartarText: "",
                 blockText: '',
                 ativarRoubo: false,
+                ativarGolpe: false,
                 isAlive: true,
                 provarText: '',
                 jogoIniciado: false
@@ -313,6 +318,7 @@
                         coins: this.coins,
                         player: player
                     })
+                    this.ativarAssassinar = false
                 },
 
                 bloquear(status, acao){
@@ -333,6 +339,16 @@
                         tipo: this.tipo
                     })
                     this.influenciaText = ""
+                },
+
+                golpeDeEstado(player){
+                    socket.emit('golpeDeEstado', {
+                        user: this.username,
+                        coins: this.coins,
+                        id: this.id,
+                        player: player
+                    })
+                    this.ativarGolpe = false
                 },
 
                 sair(){
