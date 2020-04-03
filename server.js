@@ -4,6 +4,7 @@ let io = require('socket.io')(http);
 let uuid = require('uuid')
 let players = [];
 let deck = [];
+let currentTurn = 0;
 let blockResponses = [];
 let discardedCards = [];
 let doubtResponses = [];
@@ -11,7 +12,7 @@ let inAwait = null;
 let actionInAwait = null;
 let hasBegun = false;
 let room = "";
-let porta = process.env.PORT
+let porta = process.env.PORT || 3000
 
 function montaDeck(){
     for(let i =0; i<20; i+=5){
@@ -29,6 +30,14 @@ function recallAndShuffle(){
     }
     discardedCards = []
     deck = shuffle(deck)
+}
+
+function mudaTurno(){
+    if(currentTurn+1 == players.length){
+        currentTurn = 0
+    }else {
+        currentTurn++
+    }
 }
 
 function shuffle(array) {
@@ -71,6 +80,11 @@ io.on('connection', (socket) => {
         }
 
         io.sockets.to(room).emit('joined', players);
+        io.sockets.to(room).emit('turnoMudou', {
+            id: players[currentTurn].id,
+            user: players[currentTurn].username
+        })
+        mudaTurno()
     });
     socket.on('room', (data) => {
         if(room){
@@ -149,7 +163,12 @@ io.on('connection', (socket) => {
                         actionInAwait = inAwait
                     }
                     blockResponses = []
-                    io.sockets.to(room).emit('joined', players);            
+                    io.sockets.to(room).emit('joined', players);
+                    io.sockets.to(room).emit('turnoMudou', {
+                        id: players[currentTurn].id,
+                        user: players[currentTurn].username
+                    })  
+                    mudaTurno()          
                 }else {
                     if(data.acao == 'pegar2'){
                         io.sockets.to(room).emit('chat-message', {
@@ -163,6 +182,8 @@ io.on('connection', (socket) => {
                             tipo: ['Duque']
                         })
                         inAwait = control
+                        inAwait.acao == 'blockPegar2'
+                        actionInAwait = inAwait
                         blockResponses = []
                     }
                     else if(data.acao == 'roubar2'){
@@ -269,6 +290,12 @@ io.on('connection', (socket) => {
                     message: 'Não foi contestado.',
                     user: actionInAwait.user
                 });
+
+                io.sockets.to(room).emit('turnoMudou', {
+                    id: players[currentTurn].id,
+                    user: players[currentTurn].username
+                })
+                mudaTurno()
 
                 io.sockets.to(room).emit('joined', players);
                 inAwait = {}
@@ -398,6 +425,11 @@ io.on('connection', (socket) => {
             message: 'Realizou o descarte de ' + oldCard[0].name,
             user: data.user
         });
+        io.sockets.to(room).emit('turnoMudou', {
+            id: players[currentTurn].id,
+            user: players[currentTurn].username
+        })
+        mudaTurno()
     })
     socket.on('duque3', (data) => {
         io.sockets.to(room).emit('chat-message', {
@@ -459,6 +491,8 @@ io.on('connection', (socket) => {
                     room = null
                     players = []
                     hasBegun = false
+                    doubtResponses = []
+                    blockResponses = []
                     discardedCards = []
                     socket.emit('fimDeJogo')
                     return
@@ -476,6 +510,11 @@ io.on('connection', (socket) => {
     socket.on('iniciar', () =>{
         hasBegun = true
         io.sockets.to(room).emit('jogoIniciado')
+        io.sockets.to(room).emit('turnoMudou', {
+            id: players[currentTurn].id,
+            user: players[currentTurn].username
+        })
+        mudaTurno()
     })
     socket.on('golpeDeEstado', (data) => {
         io.sockets.to(room).emit('chat-message', {
@@ -531,6 +570,9 @@ io.on('connection', (socket) => {
         players = []
         hasBegun = false
         discardedCards = []
+        doubtResponses = []
+        blockResponses = []
+        currentTurn = 0
     })
 });
 

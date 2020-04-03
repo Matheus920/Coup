@@ -10,6 +10,7 @@
         <script src="https://unpkg.com/vue-select@latest"></script>
         <link rel="stylesheet" href="https://unpkg.com/vue-select@latest/dist/vue-select.css">
         <script src="/socket.io/socket.io.js"></script>
+        <title>Tech Coup</title>
     </head>
 
     <body>
@@ -44,21 +45,22 @@
                         
                     </div>
                     <h2 v-else>{{username}} | Sala: {{room}}</h2>
+                    <p v-if="ready">O turno atual é de: {{jogadorAtual}}</p>
                     <div class="card bg-info" v-if="ready">
                         <div class="card-header text-white">
                             <h4>Ações</h4>
                         </div>
 
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ajudaExterna" :disabled="coins>=10">Ajuda externa</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="pegar2" :disabled="coins>=10">Pegar 2</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10">DUQUE - 3</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10">CAPITAO - Roubar 2</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarAssassinar =!ativarAssassinar" :disabled="coins<3 || coins>=10">ASSASSINO - Matar</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="embaixador" :disabled="coins>=10">EMBAIXADOR - Olhar topo</button>
-                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarGolpe = !ativarGolpe" :disabled="coins<7">Golpe de Estado</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ajudaExterna" :disabled="coins>=10 || !isMyTurn">Ajuda externa</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="pegar2" :disabled="coins>=10  || !isMyTurn">Pegar 2</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="duque3" :disabled="coins>=10  || !isMyTurn">DUQUE - 3</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarRoubo=!ativarRoubo" :disabled="coins>=10  || !isMyTurn">CAPITAO - Roubar 2</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarAssassinar =!ativarAssassinar" :disabled="(coins<3 || coins>=10)  || !isMyTurn">ASSASSINO - Matar</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="embaixador" :disabled="coins>=10  || !isMyTurn">EMBAIXADOR - Olhar topo</button>
+                        <button v-if="isAlive && jogoIniciado" type="button" class="btn btn-primary" @click.prevent="ativarGolpe = !ativarGolpe" :disabled="coins<7  || !isMyTurn">Golpe de Estado</button>
                     
 
-                        <ul class="list-group list-group-flush" style="max-height: 300px; overflow-y: scroll;">
+                        <ul class="list-group list-group-flush" style="max-height: 300px; overflow-y: scroll;" ref="historicoMensagens">
                             <li class="list-group-item" v-for="message in messages">
                                 <small>{{message.user}}:</small>
                                     {{message.message}}
@@ -142,7 +144,7 @@
                 acao: '',
                 info: [],
                 cards: [],
-                coins: 0,
+                coins: 3,
                 tipo: [],
                 isUnblockable: true,
                 ativarAssassinar: false,
@@ -158,7 +160,15 @@
                 provarText: '',
                 jogoIniciado: false,
                 leftCards: 0,
-                discarded: []
+                discarded: [],
+                isMyTurn: false,
+                jogadorAtual: ''
+            },
+
+            updated(){
+                let scroll = this.$refs.historicoMensagens
+                if(scroll)
+                    scroll.scrollTop = scroll.clientHeight
             },
 
             mounted(){     
@@ -195,6 +205,13 @@
             },
 
             created(){
+
+                socket.on('turnoMudou', (data) => {
+                    if(data.id == this.id)
+                        this.isMyTurn = true
+
+                    this.jogadorAtual = data.user
+                })
                 
                 socket.on('chat-message', (data) => {
                     this.messages.push({
@@ -234,7 +251,6 @@
 
                 socket.on('deckChanges', (data) => {
                     if(data.id == this.id){
-                        console.log(data.cards)
                         this.cards = data.cards;
                         localStorage.setItem('cards', JSON.stringify(data.cards));
                     }
@@ -255,7 +271,6 @@
 
                 socket.on('fimDeJogo', () => {
                     this.limparDados()
-                    socket.emit('disconnect')
                 })
 
                 socket.on('podeOlhar', (data) =>{
@@ -308,7 +323,6 @@
                         alert('Parabéns! Você foi o vencedor.')
                     }
                     this.limparDados();
-                    socket.emit('disconnect')
                     socket.emit('reiniciarJogo')
                 })
 
@@ -316,16 +330,33 @@
 
             methods: {
                 limparDados(){
-                    this.id = ""
-                    this.username = ""
+                    this.id = null
+                    this.username = null
                     this.info = []
                     this.cards = []
-                    this.room = ""
-                    this.coins = 0
+                    this.room = null
+                    this.coins = 3
                     this.messages = []
                     this.discarded = []
                     this.ready = false
                     this.jogoIniciado = false
+                    this.acao = null
+                    this.tipo = []
+                    this.isUnblockable = true
+                    this.ativarAssassinar = false
+                    this.ativarEmbaixador = false
+                    this.influenciaText = null
+                    this.descartarText = null
+                    this.blockText = null
+                    this.ativarRoubo = false
+                    this.ativarGolpe = false
+                    this.firstSelection = {}
+                    this.secondSelection = {}
+                    this.isAlive = true
+                    this.provarText = null
+                    this.leftCards = 0
+                    this.isMyTurn = false
+                    this.jogadorAtual = null
                     localStorage.clear()
                 },
 
@@ -335,6 +366,7 @@
                         coins: this.coins,
                         id: this.id
                     });
+                    this.isMyTurn = false
                 },
 
                 duque3(){
@@ -343,6 +375,7 @@
                         coins: this.coins,
                         id: this.id
                     })
+                    this.isMyTurn = false
                 },
 
                 pegar2(){
@@ -351,6 +384,7 @@
                         coins: this.coins,
                         id: this.id
                     })
+                    this.isMyTurn = false
                 },
 
                 embaixador(){
@@ -358,6 +392,7 @@
                         user: this.username,
                         id: this.id
                     })
+                    this.isMyTurn = false
                 },
 
                 roubar2(player){
@@ -368,6 +403,7 @@
                         player: player
                     })
                     this.ativarRoubo = false
+                    this.isMyTurn = false
                 },
 
                 assassinar(player){
@@ -378,6 +414,7 @@
                         player: player
                     })
                     this.ativarAssassinar = false
+                    this.isMyTurn = false
                 },
 
                 bloquear(status, acao){
@@ -408,6 +445,7 @@
                         player: player
                     })
                     this.ativarGolpe = false
+                    this.isMyTurn = false
                 },
 
                 sair(){
@@ -431,6 +469,7 @@
                     this.ativarEmbaixador = false
                     this.firstSelection = {}
                     this.secondSelection = {}
+                    this.isMyTurn = false
                 },
 
                 iniciar(){
